@@ -1,0 +1,217 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+button {
+    background-color: blue;
+    border: none;
+    color: white;
+    padding: 10px 25px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+	border-radius: 8px;
+}
+
+body
+{
+	background-color:rgb(100, 100, 100);
+	font-family:Arial;
+	color: yellow;
+}
+
+</style>
+
+<script>
+getHistData = function(d)
+{
+	var hist = [];
+	for(var i=0; i < 3; i++)
+	{
+		hist[i] = [];
+	}
+	
+	for (var c = 0; c < 3; c++)	
+		for(var i=0; i < 256; i++)
+		{
+			hist[c][i] = 0;
+		}
+	
+	for (var c = 0; c < 3; c++)	
+		for(var i=0; i < d.length; i+=4)
+		{
+			hist[c][d[i+c]]++;
+		}
+	
+	return hist;
+}
+</script>
+</head>
+
+<body>
+<h1>Hide a Text Message in an Image</h1>
+<h3>By Texas Wesleyan CSC Project Group</h3>
+<table border=0>
+<tr>
+<td>Message to be hidden:  <label id="chars">0</label></td>
+<td>Message to be revealed:  </td>
+</tr>
+<tr>
+<td><textarea id="org_message" rows=10 cols=50>Hello World</textarea><button id="hide" value="Hide" type=button >Hide</button></td>
+<td><textarea id="rev_message" rows=10 cols=50></textarea> <button id="reveal" value="Reveal" type=button>Reveal</button></td>
+</tr>
+
+<tr>
+<td>Original Image: <label id="pixels">0</label></td>
+<td>Image with message: </td>
+</tr>
+
+<tr>
+<td><img id="model" src="model.jpg" alt="Lena"></td>
+<!--td><img id="model" src="model.jpg" alt="Model Amy"></td-->
+<td><canvas id="myCanvas" width="517" height="640" style="border:1px solid #d3d3d3;">
+Your browser does not support the HTML5 canvas tag.</canvas></td>
+</tr>
+
+<tr>
+<td><canvas id="hist_org" width="517" height="400" style="border:1px solid #d3d3d3;">
+Your browser does not support the HTML5 canvas tag.</canvas></td>
+<td><canvas id="hist_rev" width="517" height="400" style="border:1px solid #d3d3d3;">
+Your browser does not support the HTML5 canvas tag.</canvas></td>
+</tr>
+
+</table>
+
+
+<script>
+var msg;
+var msg_box = document.getElementById("org_message");
+var img = document.getElementById("model");
+var c = document.getElementById("myCanvas");
+var hist_org = document.getElementById("hist_org");
+var hist_rev = document.getElementById("hist_rev");
+var hide_button = document.getElementById("hide");
+var reveal_button = document.getElementById("reveal");
+var pixels = document.getElementById("pixels");
+var chars = document.getElementById("chars");
+
+var data;
+var hist_data_org=[];
+var hist_data_rev=[];
+
+window.addEventListener('load', function(){
+	c.height = img.naturalHeight;
+	c.width = img.naturalWidth;
+	hist_org.width = img.naturalWidth;
+	hist_rev.width = img.naturalWidth;
+	pixels.innerHTML = img.naturalHeight*img.naturalWidth + " px";
+	msg = document.getElementById("org_message").innerText;
+	chars.innerHTML = msg.trim().length + " chars";
+}, false);
+
+hide_button.addEventListener('click', function (){
+	msg = document.getElementById("org_message").innerText;
+    var ctx = c.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+	chars.innerHTML = msg.trim().length + " chars";
+	
+    var imgData = ctx.getImageData(0, 0, c.width, c.height);
+	hist_data_org = getHistData(imgData.data);
+	draw_hist(hist_org, hist_data_org);
+	
+	for(var i=0; i < msg.length; i++)
+	{
+		var code = msg.charCodeAt(i);
+		var digits = [Math.floor(code/100), Math.floor(code/10)%10, code%10];
+		imgData.data[4*i] = Math.floor(imgData.data[4*i]/10)*10 + digits[0];
+		imgData.data[4*i + 1] = Math.floor(imgData.data[4*i + 1]/10)*10 + digits[1];
+		imgData.data[4*i + 2] = Math.floor(imgData.data[4*i + 2]/10)*10 + digits[2];
+	}
+
+    ctx.putImageData(imgData, 0, 0); 
+	hist_data_rev = getHistData(imgData.data);
+	draw_hist(hist_rev, hist_data_rev);
+	
+	data = imgData.data;
+}, false);
+
+reveal_button.addEventListener('click', function (){
+	var rev_msg="";
+	var digits = [];
+	for(var i=0; i < msg.length; i++)
+	{
+		digits[0] = data[4*i]%10;
+		digits[1] = data[4*i + 1]%10;
+		digits[2] = data[4*i + 2]%10;
+		code = digits[0] * 100 + digits[1] * 10 + digits[2];
+		rev_msg += String.fromCharCode(code);
+	}	
+	
+	document.getElementById("rev_message").innerText = rev_msg;
+}, false);
+
+function draw_hist(c, hist)
+{
+    var ctx = c.getContext("2d");
+	ctx.beginPath();
+	ctx.fillStyle="#FF0000";
+	var h_margin = 0.05;
+	var v_margin = 0.1;
+	var bar_width = (1-2*h_margin)*c.width/256;	
+	
+	//The dimensions of plot box
+	var box_w = (1-2*h_margin) * c.width;
+	var box_h = (1-2*v_margin) * c.height;
+	
+	//Find the maximum of array hist
+	var m = 0;
+	for(var k=0; k<3; k++)
+	{
+		m = Math.max(m, Math.max.apply(null, hist[k]));
+	}
+	
+	//For each color channel, plot histogram.
+	for(var k=0; k<3; k++)
+	{
+		if(k == 0) 
+			ctx.fillStyle="#FF0000";
+		else if (k == 1) 
+			ctx.fillStyle="#00FF00";
+		else 
+			ctx.fillStyle="#0000FF";
+		
+		for(var i = 0; i < hist[k].length; i++)
+		{
+			//Scale down to the height of the plot box
+			var h = hist[k][i]/m*box_h;  //bar heights
+			ctx.fillRect(h_margin*c.width+bar_width*i, v_margin*c.height+(box_h-h), bar_width, h);
+		}
+	}
+	
+	//Draw a plot box
+	ctx.lineWidth="1";
+	ctx.strokeStyle="yellow";
+	ctx.rect(h_margin*c.width,v_margin*c.height,box_w, box_h); 
+	ctx.stroke();
+	
+	//Caption of histogram
+	ctx.font = "12px Arial";
+	var title = "Histogram";
+	ctx.lineWidth="1";
+	ctx.strokeText(title, (c.width-title.length*12)/2, v_margin*c.height/2);
+	ctx.strokeText("0", h_margin*c.width,(1-v_margin)*c.height + 16);
+	ctx.strokeText("127", c.width/2-16,(1-v_margin)*c.height + 16);
+	ctx.strokeText("255", (1-h_margin)*c.width-16,(1-v_margin)*c.height + 16);
+}
+
+</script>
+
+
+
+
+</body>
+</html>
